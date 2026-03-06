@@ -360,23 +360,80 @@ function handleTaxReceiptSubmit(event) {
 
     const totalPaid = paidPayments.reduce((sum, p) => sum + p.amount, 0);
 
+    // Sort payments chronologically by weekStart
+    paidPayments.sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+
+    let tableHTML = `
+        <table class="table table-sm table-striped table-bordered mt-4">
+            <thead class="table-light">
+                <tr>
+                    <th>Week Of</th>
+                    <th>Date Paid</th>
+                    <th class="text-end">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    if (paidPayments.length === 0) {
+        tableHTML += `<tr><td colspan="3" class="text-center text-muted">No payments found in this period.</td></tr>`;
+    } else {
+        paidPayments.forEach(p => {
+            tableHTML += `
+                <tr>
+                    <td>${p.weekStart}</td>
+                    <td>${p.paidDate}</td>
+                    <td class="text-end">$${p.amount.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+    }
+
+    tableHTML += `
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td colspan="2" class="text-end">Total Amount Paid</td>
+                    <td class="text-end text-success">$${totalPaid.toFixed(2)}</td>
+                </tr>
+            </tfoot>
+        </table>
+    `;
+
     const output = document.getElementById('receipt-output');
     output.classList.remove('d-none');
 
     const todayStr = getLocalDateString(new Date());
 
     output.innerHTML = `
-        <h4 class="text-center">Tax Receipt</h4>
-        <hr>
-        <p><strong>Provider:</strong> Childcare Tracker</p>
-        <p><strong>Parent Name:</strong> ${customer.parentName}</p>
-        <p><strong>Child Name:</strong> ${customer.childName}</p>
-        <p><strong>Service Period:</strong> ${startDate} to ${endDate}</p>
-        <p><strong>Date Issued:</strong> ${todayStr}</p>
-        <hr>
-        <h5 class="text-end text-success">Total Amount Paid: $${totalPaid.toFixed(2)}</h5>
-        <div class="text-center mt-3">
-            <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.print()">Print Receipt</button>
+        <h4 class="text-center mb-0">Childcare Tax Receipt / Invoice</h4>
+        <div class="text-center text-muted mb-3"><small>Date Issued: ${todayStr}</small></div>
+
+        <div class="row mb-4">
+            <div class="col-6">
+                <strong>Provider:</strong><br>
+                Childcare Tracker<br>
+                <!-- Add address/contact info here if needed -->
+            </div>
+            <div class="col-6 text-end">
+                <strong>Billed To:</strong><br>
+                ${customer.parentName}<br>
+                <strong>Child:</strong> ${customer.childName}<br>
+            </div>
+        </div>
+
+        <p class="mb-2"><strong>Service Period:</strong> ${startDate} to ${endDate}</p>
+
+        ${tableHTML}
+
+        <div class="text-center mt-4 d-print-none">
+            <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-printer me-2" viewBox="0 0 16 16">
+                  <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+                  <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
+                </svg>
+                Print Receipt
+            </button>
         </div>
     `;
 }

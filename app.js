@@ -321,6 +321,20 @@ function populateReceiptCustomers() {
     document.getElementById('tax-receipt-form').reset();
 }
 
+function handleTaxYearChange() {
+    const yearSelect = document.getElementById('quickTaxYear').value;
+    const startInput = document.getElementById('receiptStartDate');
+    const endInput = document.getElementById('receiptEndDate');
+
+    if (yearSelect) {
+        startInput.value = `${yearSelect}-01-01`;
+        endInput.value = `${yearSelect}-12-31`;
+    } else {
+        startInput.value = '';
+        endInput.value = '';
+    }
+}
+
 function handleTaxReceiptSubmit(event) {
     event.preventDefault();
 

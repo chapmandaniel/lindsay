@@ -367,18 +367,51 @@ function handleTaxReceiptSubmit(event) {
     `;
 }
 
+// --- PIN Authentication ---
+const CORRECT_PIN = '84528452';
+
+function checkAuthStatus() {
+    const isAuthenticated = sessionStorage.getItem('isAuthenticated') === 'true';
+    if (isAuthenticated) {
+        unlockApp();
+    }
+}
+
+function handlePinSubmit(event) {
+    event.preventDefault();
+    const pinInput = document.getElementById('pinInput').value;
+    const errorEl = document.getElementById('pin-error');
+
+    if (pinInput === CORRECT_PIN) {
+        sessionStorage.setItem('isAuthenticated', 'true');
+        unlockApp();
+    } else {
+        errorEl.classList.remove('d-none');
+        document.getElementById('pinInput').value = '';
+    }
+}
+
+function unlockApp() {
+    document.getElementById('pin-overlay').classList.add('d-none');
+    document.getElementById('app-wrapper').classList.remove('d-none');
+
+    // Initialize App data only after unlocking
+    renderCustomers();
+    renderClosedDays();
+    generatePayments();
+}
+
 // --- App Initialization ---
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('App initialized');
 
     // Event listeners
+    document.getElementById('pin-form').addEventListener('submit', handlePinSubmit);
     document.getElementById('customer-form').addEventListener('submit', handleCustomerSubmit);
     document.getElementById('closed-days-form').addEventListener('submit', handleClosedDaySubmit);
     document.getElementById('tax-receipt-form').addEventListener('submit', handleTaxReceiptSubmit);
 
-    // Initial renders
-    renderCustomers();
-    renderClosedDays();
-    generatePayments();
+    // Check if already authenticated in this session
+    checkAuthStatus();
 });

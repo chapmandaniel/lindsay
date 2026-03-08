@@ -259,7 +259,7 @@ function markAsPaid(paymentId) {
     const index = payments.findIndex(p => p.id === paymentId);
     if (index > -1) {
         payments[index].status = 'Paid';
-        payments[index].paidDate = getLocalDateString(new Date());
+        payments[index].paidDate = payments[index].weekStart;
         savePayments(payments);
         renderDuePayments();
     }

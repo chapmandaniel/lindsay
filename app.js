@@ -85,7 +85,8 @@ function handleCustomerSubmit(event) {
             childName,
             startDate,
             endDate,
-            weeklyRate
+            weeklyRate,
+            creditBalance: 0
         };
         customers.push(newCustomer);
     }
@@ -158,6 +159,10 @@ function renderCustomers() {
     const ul = document.createElement('ul');
     ul.className = 'list-group';
     customers.forEach(customer => {
+        const creditDisplay = (customer.creditBalance && customer.creditBalance > 0)
+            ? `<br><small class="text-success fw-bold">Credit Balance: $${customer.creditBalance.toFixed(2)}</small>`
+            : '';
+
         const li = document.createElement('li');
         li.className = 'list-group-item d-flex justify-content-between align-items-center';
         li.innerHTML = `
@@ -165,6 +170,7 @@ function renderCustomers() {
                 <strong>${customer.childName}</strong> (Parent: ${customer.parentName})<br>
                 <small class="text-muted">Rate: $${customer.weeklyRate.toFixed(2)}/wk | Start: ${customer.startDate}</small>
                 ${customer.endDate ? `<br><small class="text-danger">Ends: ${customer.endDate}</small>` : ''}
+                ${creditDisplay}
             </div>
             <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#customerModal" onclick="openCustomerModal('${customer.id}')">Edit</button>
         `;
@@ -221,6 +227,44 @@ function renderClosedDays() {
 }
 
 // --- Payment Generation & Management ---
+
+function processCredits() {
+    let customers = getCustomers();
+    let payments = getPayments();
+    let changed = false;
+
+    customers.forEach(customer => {
+        if (!customer.creditBalance || customer.creditBalance <= 0) return;
+
+        // Get due payments sorted from oldest to newest
+        let duePayments = payments.filter(p => p.customerId === customer.id && p.status === 'Due')
+                                  .sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+
+        for (let payment of duePayments) {
+            if (customer.creditBalance <= 0) break;
+
+            if (customer.creditBalance >= payment.amount) {
+                // Pay in full
+                customer.creditBalance -= payment.amount;
+                payment.status = 'Paid';
+                payment.paidDate = payment.weekStart; // using the rule established earlier
+                changed = true;
+            } else {
+                // Partial payment
+                payment.amount -= customer.creditBalance;
+                customer.creditBalance = 0;
+                changed = true;
+            }
+        }
+    });
+
+    if (changed) {
+        saveCustomers(customers);
+        savePayments(payments);
+        renderCustomers();
+        renderDuePayments();
+    }
+}
 
 function generatePayments() {
     const customers = getCustomers();
@@ -301,6 +345,11 @@ function generatePayments() {
         savePayments(payments);
     }
     renderDuePayments();
+
+    // Automatically apply any outstanding credits to newly generated payments
+    if (paymentsUpdated) {
+        processCredits();
+    }
 }
 
 function markAsPaid(paymentId) {
@@ -374,6 +423,52 @@ function renderDuePayments() {
     dashboard.appendChild(ul);
 }
 
+
+// --- Bulk Payment Management ---
+
+function populateBulkPaymentCustomers() {
+    const select = document.getElementById('bulkCustomer');
+    const customers = getCustomers();
+    select.innerHTML = '<option value="">-- Select Customer --</option>';
+
+    customers.forEach(customer => {
+        const option = document.createElement('option');
+        option.value = customer.id;
+        option.textContent = `${customer.childName} (Parent: ${customer.parentName})`;
+        select.appendChild(option);
+    });
+
+    document.getElementById('bulk-payment-form').reset();
+}
+
+function handleBulkPaymentSubmit(event) {
+    event.preventDefault();
+    const customerId = document.getElementById('bulkCustomer').value;
+    const amountStr = document.getElementById('bulkAmount').value;
+    const amount = parseFloat(amountStr);
+
+    if (!customerId || isNaN(amount) || amount <= 0) return;
+
+    let customers = getCustomers();
+    const customerIndex = customers.findIndex(c => c.id === customerId);
+
+    if (customerIndex > -1) {
+        // Initialize creditBalance if it doesn't exist on older records
+        if (typeof customers[customerIndex].creditBalance !== 'number') {
+            customers[customerIndex].creditBalance = 0;
+        }
+        customers[customerIndex].creditBalance += amount;
+        saveCustomers(customers);
+
+        // Close modal
+        const modalEl = document.getElementById('bulkPaymentModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+
+        renderCustomers();
+        processCredits();
+    }
+}
 
 // --- Tax Receipt Management ---
 
@@ -553,6 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('pin-form').addEventListener('submit', handlePinSubmit);
     document.getElementById('customer-form').addEventListener('submit', handleCustomerSubmit);
     document.getElementById('closed-days-form').addEventListener('submit', handleClosedDaySubmit);
+    document.getElementById('bulk-payment-form').addEventListener('submit', handleBulkPaymentSubmit);
     document.getElementById('tax-receipt-form').addEventListener('submit', handleTaxReceiptSubmit);
 
     // Check if already authenticated in this session

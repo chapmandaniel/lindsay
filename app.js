@@ -32,6 +32,9 @@ function openCustomerModal(id = null) {
     const form = document.getElementById('customer-form');
     form.reset();
     document.getElementById('customerId').value = '';
+    const deleteBtn = document.getElementById('deleteCustomerBtn');
+    deleteBtn.classList.add('d-none');
+    deleteBtn.onclick = null;
 
     if (id) {
         const customers = getCustomers();
@@ -43,6 +46,9 @@ function openCustomerModal(id = null) {
             document.getElementById('startDate').value = customer.startDate;
             document.getElementById('endDate').value = customer.endDate || '';
             // weeklyRate is fixed
+
+            deleteBtn.classList.remove('d-none');
+            deleteBtn.onclick = () => deleteCustomer(id);
         }
     }
 }
@@ -94,6 +100,26 @@ function handleCustomerSubmit(event) {
     renderCustomers();
     // Re-generate payments just in case dates changed
     generatePayments();
+}
+
+function deleteCustomer(id) {
+    if (confirm("Are you sure you want to delete this customer? All their associated payments will also be deleted.")) {
+        let customers = getCustomers();
+        customers = customers.filter(c => c.id !== id);
+        saveCustomers(customers);
+
+        let payments = getPayments();
+        payments = payments.filter(p => p.customerId !== id);
+        savePayments(payments);
+
+        // Close modal
+        const modalEl = document.getElementById('customerModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+
+        renderCustomers();
+        renderDuePayments();
+    }
 }
 
 function renderCustomers() {

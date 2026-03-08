@@ -45,7 +45,12 @@ function openCustomerModal(id = null) {
             document.getElementById('childName').value = customer.childName;
             document.getElementById('startDate').value = customer.startDate;
             document.getElementById('endDate').value = customer.endDate || '';
-            // weeklyRate is fixed
+
+            // Support backward compatibility
+            const rate = customer.rateAmount || customer.weeklyRate || 50.00;
+            const freq = customer.paymentFrequency || 'weekly';
+            document.getElementById('rateAmount').value = rate.toFixed(2);
+            document.getElementById('paymentFrequency').value = freq;
 
             deleteBtn.classList.remove('d-none');
             deleteBtn.onclick = () => deleteCustomer(id);
@@ -67,7 +72,8 @@ function handleCustomerSubmit(event) {
     const childName = document.getElementById('childName').value;
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
-    const weeklyRate = 50.00; // Fixed rate
+    const rateAmount = parseFloat(document.getElementById('rateAmount').value) || 0.00;
+    const paymentFrequency = document.getElementById('paymentFrequency').value;
 
     const customers = getCustomers();
 
@@ -75,7 +81,7 @@ function handleCustomerSubmit(event) {
         // Edit existing customer
         const index = customers.findIndex(c => c.id === id);
         if (index > -1) {
-            customers[index] = { ...customers[index], parentName, childName, startDate, endDate, weeklyRate };
+            customers[index] = { ...customers[index], parentName, childName, startDate, endDate, rateAmount, paymentFrequency };
         }
     } else {
         // Add new customer
@@ -85,7 +91,8 @@ function handleCustomerSubmit(event) {
             childName,
             startDate,
             endDate,
-            weeklyRate,
+            rateAmount,
+            paymentFrequency,
             creditBalance: 0
         };
         customers.push(newCustomer);
@@ -168,7 +175,7 @@ function renderCustomers() {
         li.innerHTML = `
             <div>
                 <strong>${customer.childName}</strong> (Parent: ${customer.parentName})<br>
-                <small class="text-muted">Rate: $${customer.weeklyRate.toFixed(2)}/wk | Start: ${customer.startDate}</small>
+                <small class="text-muted">Rate: $${(customer.rateAmount || customer.weeklyRate || 50.00).toFixed(2)} / ${customer.paymentFrequency || 'weekly'} | Start: ${customer.startDate}</small>
                 ${customer.endDate ? `<br><small class="text-danger">Ends: ${customer.endDate}</small>` : ''}
                 ${creditDisplay}
             </div>
@@ -278,40 +285,62 @@ function generatePayments() {
     let paymentsUpdated = false;
 
     customers.forEach(customer => {
-        let currentWeekStart = new Date(customer.startDate + 'T00:00:00');
+        let currentPeriodStart = new Date(customer.startDate + 'T00:00:00');
+
         // Find the most recent Monday for the start date
-        const dayOfWeek = currentWeekStart.getDay();
-        const diffToMonday = currentWeekStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-        currentWeekStart.setDate(diffToMonday);
+        const dayOfWeek = currentPeriodStart.getDay();
+        const diffToMonday = currentPeriodStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+        currentPeriodStart.setDate(diffToMonday);
 
         const endLimit = customer.endDate ? new Date(customer.endDate + 'T00:00:00') : today;
 
-        // Ensure we process up to the current week, but not beyond today
+        // Ensure we process up to the current period, but not beyond today
         let actualEndLimit = endLimit < today ? endLimit : today;
 
-        while (currentWeekStart <= actualEndLimit) {
-            const weekStartStr = getLocalDateString(currentWeekStart);
-            let weekEnd = new Date(currentWeekStart);
-            weekEnd.setDate(weekEnd.getDate() + 4); // Friday of that week
+        const rateAmount = customer.rateAmount || customer.weeklyRate || 50.00;
+        const freq = customer.paymentFrequency || 'weekly';
 
-            // Check if payment already generated for this week/customer
-            const existingPayment = payments.find(p => p.customerId === customer.id && p.weekStart === weekStartStr);
+        while (currentPeriodStart <= actualEndLimit) {
+            const periodStartStr = getLocalDateString(currentPeriodStart);
+
+            // Determine period end date based on frequency
+            let periodEnd = new Date(currentPeriodStart);
+            let periodDays = 7;
+            if (freq === 'bi-weekly') {
+                periodEnd.setDate(periodEnd.getDate() + 13);
+                periodDays = 14;
+            } else if (freq === 'monthly') {
+                // Approximate monthly to roughly 4 weeks for simple Mon-Fri business logic,
+                // or accurately calculate exact working days. Let's step by exact month.
+                periodEnd.setMonth(periodEnd.getMonth() + 1);
+                periodEnd.setDate(periodEnd.getDate() - 1);
+                // Approximate period days to difference in days
+                periodDays = Math.round((periodEnd - currentPeriodStart) / (1000 * 60 * 60 * 24)) + 1;
+            } else {
+                // Weekly
+                periodEnd.setDate(periodEnd.getDate() + 6);
+                periodDays = 7;
+            }
+
+            // Check if payment already generated for this period/customer
+            const existingPayment = payments.find(p => p.customerId === customer.id && p.weekStart === periodStartStr);
 
             if (!existingPayment) {
-                // Calculate amount
-                let amountToCharge = customer.weeklyRate; // Default 50.00
-                let actualWorkingDays = 5;
+                // Calculate working days in this period (Mon - Fri)
+                let workingDaysList = [];
+                for (let i = 0; i < periodDays; i++) {
+                    let d = new Date(currentPeriodStart);
+                    d.setDate(d.getDate() + i);
+                    let dw = d.getDay();
+                    if (dw !== 0 && dw !== 6) { // Mon-Fri
+                        workingDaysList.push(d);
+                    }
+                }
 
-                // Adjust for start/end date mid-week
-                let mon = new Date(currentWeekStart);
-                let tue = new Date(currentWeekStart); tue.setDate(tue.getDate() + 1);
-                let wed = new Date(currentWeekStart); wed.setDate(wed.getDate() + 2);
-                let thu = new Date(currentWeekStart); thu.setDate(thu.getDate() + 3);
-                let fri = new Date(currentWeekStart); fri.setDate(fri.getDate() + 4);
+                let totalWorkingDays = workingDaysList.length;
+                let actualWorkingDays = totalWorkingDays;
 
-                const weekDays = [mon, tue, wed, thu, fri];
-
-                weekDays.forEach(day => {
+                workingDaysList.forEach(day => {
                     const dayStr = getLocalDateString(day);
                     const isBeforeStart = dayStr < customer.startDate;
                     const isAfterEnd = customer.endDate && dayStr > customer.endDate;
@@ -319,15 +348,20 @@ function generatePayments() {
 
                     if (isBeforeStart || isAfterEnd || isClosed) {
                         actualWorkingDays--;
-                        amountToCharge -= 10.00; // Deduct $10 for each day
                     }
                 });
 
                 if (actualWorkingDays > 0) {
+                    let dailyRate = rateAmount / totalWorkingDays;
+                    let amountToCharge = dailyRate * actualWorkingDays;
+
+                    // Round to nearest 2 decimals
+                    amountToCharge = Math.round(amountToCharge * 100) / 100;
+
                     payments.push({
                         id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                         customerId: customer.id,
-                        weekStart: weekStartStr,
+                        weekStart: periodStartStr, // keeping variable name weekStart for backward compatibility in rest of codebase
                         amount: amountToCharge,
                         status: 'Due',
                         paidDate: null
@@ -336,8 +370,14 @@ function generatePayments() {
                 }
             }
 
-            // Move to next week Monday
-            currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+            // Move to next period
+            if (freq === 'monthly') {
+                currentPeriodStart.setMonth(currentPeriodStart.getMonth() + 1);
+            } else if (freq === 'bi-weekly') {
+                currentPeriodStart.setDate(currentPeriodStart.getDate() + 14);
+            } else {
+                currentPeriodStart.setDate(currentPeriodStart.getDate() + 7);
+            }
         }
     });
 
@@ -412,7 +452,7 @@ function renderDuePayments() {
             <div>
                 <h5 class="mb-1">${customer.childName} <small class="text-muted">(${customer.parentName})</small></h5>
                 <p class="mb-1 text-danger fw-bold">Amount Due: $${payment.amount.toFixed(2)}</p>
-                <small class="text-muted">Week of: ${payment.weekStart}</small>
+                <small class="text-muted">Period Start: ${payment.weekStart}</small>
             </div>
             <button class="btn btn-success" onclick="markAsPaid('${payment.id}')">Mark as Paid</button>
         `;
@@ -534,7 +574,7 @@ function handleTaxReceiptSubmit(event) {
         <table class="table table-sm table-striped table-bordered mt-4">
             <thead class="table-light">
                 <tr>
-                    <th>Week Of</th>
+                    <th>Period Start</th>
                     <th>Date Paid</th>
                     <th class="text-end">Amount</th>
                 </tr>

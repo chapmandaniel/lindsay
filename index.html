@@ -215,9 +215,16 @@
                                 <input type="date" class="form-control" id="endDate">
                             </div>
                             <div class="mb-3">
-                                <label for="weeklyRate" class="form-label">Weekly Rate ($)</label>
-                                <input type="number" class="form-control" id="weeklyRate" value="50.00" disabled>
-                                <small class="text-muted">Rate is fixed at $50/week ($10/day, Mon-Fri).</small>
+                                <label for="paymentFrequency" class="form-label">Payment Frequency</label>
+                                <select class="form-select" id="paymentFrequency" required>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="bi-weekly">Bi-weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="rateAmount" class="form-label">Rate Amount ($)</label>
+                                <input type="number" step="0.01" class="form-control" id="rateAmount" required min="0.01">
                             </div>
                         </div>
                         <div class="modal-footer justify-content-between">

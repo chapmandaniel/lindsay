@@ -122,10 +122,33 @@ function deleteCustomer(id) {
     }
 }
 
+function populateDuePaymentsFilter(customers) {
+    const filterSelect = document.getElementById('duePaymentsFilter');
+    // Save current selection to restore it if possible
+    const currentVal = filterSelect.value;
+
+    filterSelect.innerHTML = '<option value="">All Customers</option>';
+
+    customers.forEach(c => {
+        const option = document.createElement('option');
+        option.value = c.id;
+        option.textContent = `${c.childName} (${c.parentName})`;
+        filterSelect.appendChild(option);
+    });
+
+    // Restore previous selection if it still exists
+    if (currentVal && customers.find(c => c.id === currentVal)) {
+        filterSelect.value = currentVal;
+    }
+}
+
 function renderCustomers() {
     const list = document.getElementById('customers-list');
     const customers = getCustomers();
     list.innerHTML = '';
+
+    // Update the dropdown filter with current customers
+    populateDuePaymentsFilter(customers);
 
     if (customers.length === 0) {
         list.innerHTML = '<p class="text-muted">No customers added yet.</p>';
@@ -295,24 +318,47 @@ function renderDuePayments() {
     const dashboard = document.getElementById('payments-dashboard');
     const payments = getPayments();
     const customers = getCustomers();
+    const filterSelect = document.getElementById('duePaymentsFilter');
+    const selectedCustomerId = filterSelect.value;
 
-    // Sort by weekStart descending
-    const duePayments = payments.filter(p => p.status === 'Due').sort((a, b) => new Date(b.weekStart) - new Date(a.weekStart));
+    // Filter and sort by weekStart descending
+    let duePayments = payments.filter(p => p.status === 'Due');
+
+    if (selectedCustomerId) {
+        duePayments = duePayments.filter(p => p.customerId === selectedCustomerId);
+    }
+
+    duePayments.sort((a, b) => new Date(b.weekStart) - new Date(a.weekStart));
 
     if (duePayments.length === 0) {
-        dashboard.innerHTML = '<div class="alert alert-success">All caught up! No payments are currently due.</div>';
+        dashboard.innerHTML = '<div class="alert alert-success">All caught up! No payments are currently due for the selected filter.</div>';
         return;
     }
 
     const ul = document.createElement('ul');
     ul.className = 'list-group';
 
+    // Create an array of understated Bootstrap background color classes
+    const subtleColors = [
+        'bg-primary-subtle',
+        'bg-secondary-subtle',
+        'bg-success-subtle',
+        'bg-danger-subtle',
+        'bg-warning-subtle',
+        'bg-info-subtle',
+        'bg-light'
+    ];
+
     duePayments.forEach(payment => {
         const customer = customers.find(c => c.id === payment.customerId);
         if (!customer) return;
 
+        // Find index of customer to consistently assign a color class
+        const customerIndex = customers.findIndex(c => c.id === payment.customerId);
+        const colorClass = subtleColors[customerIndex % subtleColors.length];
+
         const li = document.createElement('li');
-        li.className = 'list-group-item d-flex justify-content-between align-items-center mb-2 shadow-sm rounded';
+        li.className = `list-group-item d-flex justify-content-between align-items-center mb-2 shadow-sm rounded ${colorClass}`;
         li.innerHTML = `
             <div>
                 <h5 class="mb-1">${customer.childName} <small class="text-muted">(${customer.parentName})</small></h5>

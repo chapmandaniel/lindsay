@@ -1,3 +1,35 @@
+// --- Toast Notifications ---
+
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    const bgClass = type === 'success' ? 'bg-success text-white' : (type === 'danger' ? 'bg-danger text-white' : 'bg-primary text-white');
+
+    const toastEl = document.createElement('div');
+    toastEl.className = `toast align-items-center border-0 ${bgClass}`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.setAttribute('aria-live', 'assertive');
+    toastEl.setAttribute('aria-atomic', 'true');
+
+    toastEl.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+
+    container.appendChild(toastEl);
+    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+    toast.show();
+
+    toastEl.addEventListener('hidden.bs.toast', () => {
+        toastEl.remove();
+    });
+}
+
 // Childcare Tracker Application
 
 // --- Local Storage Wrappers ---
@@ -65,6 +97,26 @@ function getLocalDateString(date) {
     return `${year}-${month}-${day}`;
 }
 
+function getMondayOfDateString(dateStr) {
+    // Treat dateStr 'YYYY-MM-DD' as local
+    const parts = dateStr.split('-');
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+    const dayOfWeek = date.getDay();
+    // Monday is 1, Sunday is 0. If Sunday, subtract 6 days. Else subtract dayOfWeek - 1
+    const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    const monday = new Date(date.setDate(diff));
+    return getLocalDateString(monday);
+}
+
+function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    return date.toLocaleDateString(undefined, options);
+}
+
 function handleCustomerSubmit(event) {
     event.preventDefault();
     const id = document.getElementById('customerId').value;
@@ -83,6 +135,7 @@ function handleCustomerSubmit(event) {
         if (index > -1) {
             customers[index] = { ...customers[index], parentName, childName, startDate, endDate, rateAmount, paymentFrequency };
         }
+        showToast('Customer updated successfully!');
     } else {
         // Add new customer
         const newCustomer = {
@@ -96,6 +149,7 @@ function handleCustomerSubmit(event) {
             creditBalance: 0
         };
         customers.push(newCustomer);
+        showToast('Customer added successfully!');
     }
 
     saveCustomers(customers);
@@ -127,26 +181,39 @@ function deleteCustomer(id) {
 
         renderCustomers();
         renderDuePayments();
+        showToast('Customer deleted.', 'danger');
     }
 }
 
 function populateDuePaymentsFilter(customers) {
     const filterSelect = document.getElementById('duePaymentsFilter');
-    // Save current selection to restore it if possible
+    const historySelect = document.getElementById('historyPaymentsFilter');
+
+    // Save current selections to restore them if possible
     const currentVal = filterSelect.value;
+    const currentHistoryVal = historySelect.value;
 
     filterSelect.innerHTML = '<option value="">All Customers</option>';
+    historySelect.innerHTML = '<option value="">All Customers</option>';
 
     customers.forEach(c => {
-        const option = document.createElement('option');
-        option.value = c.id;
-        option.textContent = `${c.childName} (${c.parentName})`;
-        filterSelect.appendChild(option);
+        const option1 = document.createElement('option');
+        option1.value = c.id;
+        option1.textContent = `${c.childName} (${c.parentName})`;
+        filterSelect.appendChild(option1);
+
+        const option2 = document.createElement('option');
+        option2.value = c.id;
+        option2.textContent = `${c.childName} (${c.parentName})`;
+        historySelect.appendChild(option2);
     });
 
     // Restore previous selection if it still exists
     if (currentVal && customers.find(c => c.id === currentVal)) {
         filterSelect.value = currentVal;
+    }
+    if (currentHistoryVal && customers.find(c => c.id === currentHistoryVal)) {
+        historySelect.value = currentHistoryVal;
     }
 }
 
@@ -175,8 +242,8 @@ function renderCustomers() {
         li.innerHTML = `
             <div>
                 <strong>${customer.childName}</strong> (Parent: ${customer.parentName})<br>
-                <small class="text-muted">Rate: $${(customer.rateAmount || customer.weeklyRate || 50.00).toFixed(2)} / ${customer.paymentFrequency || 'weekly'} | Start: ${customer.startDate}</small>
-                ${customer.endDate ? `<br><small class="text-danger">Ends: ${customer.endDate}</small>` : ''}
+                <small class="text-muted">Rate: $${(customer.rateAmount || customer.weeklyRate || 50.00).toFixed(2)} / ${customer.paymentFrequency || 'weekly'} | Start: ${formatDisplayDate(customer.startDate)}</small>
+                ${customer.endDate ? `<br><small class="text-danger">Ends: ${formatDisplayDate(customer.endDate)}</small>` : ''}
                 ${creditDisplay}
             </div>
             <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#customerModal" onclick="openCustomerModal('${customer.id}')">Edit</button>
@@ -200,6 +267,7 @@ function handleClosedDaySubmit(event) {
         saveClosedDays(closedDays);
         document.getElementById('closedDate').value = '';
         renderClosedDays();
+        showToast('Closed day recorded!');
         // Payments amounts would technically need to be recalculated if a day is closed *after* generation.
         // We'll leave the generation logic as is, assuming closed days are added before payment week starts.
     }
@@ -210,6 +278,7 @@ function removeClosedDay(date) {
     closedDays = closedDays.filter(d => d !== date);
     saveClosedDays(closedDays);
     renderClosedDays();
+    showToast('Closed day removed.', 'danger');
 }
 
 function renderClosedDays() {
@@ -226,7 +295,7 @@ function renderClosedDays() {
         const li = document.createElement('li');
         li.className = 'list-group-item d-flex justify-content-between align-items-center';
         li.innerHTML = `
-            ${date}
+            ${formatDisplayDate(date)}
             <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeClosedDay('${date}')">Remove</button>
         `;
         list.appendChild(li);
@@ -254,11 +323,25 @@ function processCredits() {
                 // Pay in full
                 customer.creditBalance -= payment.amount;
                 payment.status = 'Paid';
-                payment.paidDate = payment.weekStart; // using the rule established earlier
+                payment.paidDate = getMondayOfDateString(payment.weekStart);
                 changed = true;
             } else {
-                // Partial payment
-                payment.amount -= customer.creditBalance;
+                // Partial payment (Split the payment record to track partial data)
+                const paidAmount = customer.creditBalance;
+
+                // Add a new 'Paid' record for the credited amount
+                const partialPaidPayment = {
+                    id: Date.now().toString() + '-' + Math.random().toString(36).substring(7),
+                    customerId: payment.customerId,
+                    weekStart: payment.weekStart,
+                    amount: paidAmount,
+                    status: 'Paid',
+                    paidDate: getMondayOfDateString(payment.weekStart)
+                };
+                payments.push(partialPaidPayment);
+
+                // Reduce the 'Due' amount for the existing record
+                payment.amount -= paidAmount;
                 customer.creditBalance = 0;
                 changed = true;
             }
@@ -397,9 +480,11 @@ function markAsPaid(paymentId) {
     const index = payments.findIndex(p => p.id === paymentId);
     if (index > -1) {
         payments[index].status = 'Paid';
-        payments[index].paidDate = payments[index].weekStart;
+        payments[index].paidDate = getMondayOfDateString(payments[index].weekStart);
         savePayments(payments);
         renderDuePayments();
+        renderPaymentHistory();
+        showToast('Payment marked as paid!');
     }
 }
 
@@ -452,9 +537,68 @@ function renderDuePayments() {
             <div>
                 <h5 class="mb-1">${customer.childName} <small class="text-muted">(${customer.parentName})</small></h5>
                 <p class="mb-1 text-danger fw-bold">Amount Due: $${payment.amount.toFixed(2)}</p>
-                <small class="text-muted">Period Start: ${payment.weekStart}</small>
+                <small class="text-muted">Period Start: ${formatDisplayDate(payment.weekStart)}</small>
             </div>
             <button class="btn btn-success" onclick="markAsPaid('${payment.id}')">Mark as Paid</button>
+        `;
+        ul.appendChild(li);
+    });
+
+    dashboard.innerHTML = '';
+    dashboard.appendChild(ul);
+}
+
+function renderPaymentHistory() {
+    const dashboard = document.getElementById('payment-history-dashboard');
+    const payments = getPayments();
+    const customers = getCustomers();
+    const filterSelect = document.getElementById('historyPaymentsFilter');
+    const selectedCustomerId = filterSelect.value;
+
+    // Filter and sort by paidDate descending
+    let historyPayments = payments.filter(p => p.status === 'Paid');
+
+    if (selectedCustomerId) {
+        historyPayments = historyPayments.filter(p => p.customerId === selectedCustomerId);
+    }
+
+    historyPayments.sort((a, b) => new Date(b.paidDate) - new Date(a.paidDate));
+
+    if (historyPayments.length === 0) {
+        dashboard.innerHTML = '<div class="alert alert-secondary">No payment history available.</div>';
+        return;
+    }
+
+    const ul = document.createElement('ul');
+    ul.className = 'list-group';
+
+    const subtleColors = [
+        'bg-primary-subtle',
+        'bg-secondary-subtle',
+        'bg-success-subtle',
+        'bg-danger-subtle',
+        'bg-warning-subtle',
+        'bg-info-subtle',
+        'bg-light'
+    ];
+
+    historyPayments.forEach(payment => {
+        const customer = customers.find(c => c.id === payment.customerId);
+        if (!customer) return;
+
+        const customerIndex = customers.findIndex(c => c.id === payment.customerId);
+        const colorClass = subtleColors[customerIndex % subtleColors.length];
+
+        const li = document.createElement('li');
+        li.className = `list-group-item d-flex justify-content-between align-items-center mb-2 shadow-sm rounded ${colorClass}`;
+
+        li.innerHTML = `
+            <div>
+                <h5 class="mb-1">${customer.childName} <small class="text-muted">(${customer.parentName})</small></h5>
+                <p class="mb-1 text-success fw-bold">Amount Paid: $${payment.amount.toFixed(2)}</p>
+                <small class="text-muted">Period Start: ${formatDisplayDate(payment.weekStart)} <br> Paid Date: ${formatDisplayDate(payment.paidDate)}</small>
+            </div>
+            <span class="badge bg-success rounded-pill">Paid</span>
         `;
         ul.appendChild(li);
     });
@@ -507,6 +651,7 @@ function handleBulkPaymentSubmit(event) {
 
         renderCustomers();
         processCredits();
+        showToast(`Bulk payment of $${amount.toFixed(2)} applied!`);
     }
 }
 
@@ -629,7 +774,7 @@ function handleTaxReceiptSubmit(event) {
             </div>
         </div>
 
-        <p class="mb-2"><strong>Service Period:</strong> ${startDate} to ${endDate}</p>
+        <p class="mb-2"><strong>Service Period:</strong> ${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}</p>
 
         ${tableHTML}
 

@@ -58,15 +58,42 @@
     <div class="container mt-4" id="main-content">
         <div class="row">
             <div class="col-md-8">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h2 class="mb-0">Due Payments</h2>
-                    <select class="form-select w-auto" id="duePaymentsFilter" onchange="renderDuePayments()">
-                        <option value="">All Customers</option>
-                    </select>
+
+                <ul class="nav nav-tabs mb-3" id="paymentTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="due-tab" data-bs-toggle="tab" data-bs-target="#due" type="button" role="tab" aria-controls="due" aria-selected="true">Due Payments</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab" aria-controls="history" aria-selected="false" onclick="renderPaymentHistory()">Payment History</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="paymentTabsContent">
+                    <div class="tab-pane fade show active" id="due" role="tabpanel" aria-labelledby="due-tab">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="mb-0">Due Payments</h2>
+                            <select class="form-select w-auto" id="duePaymentsFilter" onchange="renderDuePayments()">
+                                <option value="">All Customers</option>
+                            </select>
+                        </div>
+                        <div id="payments-dashboard">
+                            <!-- Payments will be injected here -->
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="history" role="tabpanel" aria-labelledby="history-tab">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="mb-0">Payment History</h2>
+                            <select class="form-select w-auto" id="historyPaymentsFilter" onchange="renderPaymentHistory()">
+                                <option value="">All Customers</option>
+                            </select>
+                        </div>
+                        <div id="payment-history-dashboard">
+                            <!-- History will be injected here -->
+                        </div>
+                    </div>
                 </div>
-                <div id="payments-dashboard">
-                    <!-- Payments will be injected here -->
-                </div>
+
             </div>
             <div class="col-md-4">
                 <h2>Customers</h2>
@@ -239,6 +266,11 @@
             </div>
         </div>
     </div>
+
+        <!-- Toast Container -->
+        <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer">
+            <!-- Toasts injected here -->
+        </div>
 
     </div> <!-- End of App Wrapper -->
 

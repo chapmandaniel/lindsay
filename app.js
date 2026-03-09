@@ -743,51 +743,75 @@ function handleTaxReceiptSubmit(event) {
 
     tableHTML += `
             </tbody>
-            <tfoot>
-                <tr class="fw-bold">
-                    <td colspan="2" class="text-end">Total Amount Paid</td>
-                    <td class="text-end text-success">$${totalPaid.toFixed(2)}</td>
-                </tr>
-            </tfoot>
         </table>
     `;
 
-    const output = document.getElementById('receipt-output');
-    output.classList.remove('d-none');
-
     const todayStr = getLocalDateString(new Date());
 
-    output.innerHTML = `
-        <h4 class="text-center mb-0">Childcare Tax Receipt / Invoice</h4>
-        <div class="text-center text-muted mb-3"><small>Date Issued: ${todayStr}</small></div>
+    const receiptHTML = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>Tax Receipt - ${customer.childName}</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            <style>
+                @media print {
+                    .d-print-none { display: none !important; }
+                }
+                body { background-color: white; }
+            </style>
+        </head>
+        <body class="p-4">
+            <h4 class="text-center mb-0">Childcare Tax Receipt / Invoice</h4>
+            <div class="text-center text-muted mb-3"><small>Date Issued: ${todayStr}</small></div>
 
-        <div class="row mb-4">
-            <div class="col-6">
-                <strong>Provider:</strong><br>
-                Childcare Tracker<br>
-                <!-- Add address/contact info here if needed -->
+            <div class="row mb-4">
+                <div class="col-6">
+                    <strong>Provider:</strong><br>
+                    Tater Tots Childcare<br>
+                    <!-- Add address/contact info here if needed -->
+                </div>
+                <div class="col-6 text-end">
+                    <strong>Billed To:</strong><br>
+                    ${customer.parentName}<br>
+                    <strong>Child:</strong> ${customer.childName}<br>
+                </div>
             </div>
-            <div class="col-6 text-end">
-                <strong>Billed To:</strong><br>
-                ${customer.parentName}<br>
-                <strong>Child:</strong> ${customer.childName}<br>
+
+            <h5 class="mb-3">Summary</h5>
+            <table class="table table-bordered mb-4">
+                <tbody>
+                    <tr>
+                        <th style="width: 30%">Service Period</th>
+                        <td>${startDate} to ${endDate}</td>
+                    </tr>
+                    <tr>
+                        <th>Total Amount Paid</th>
+                        <td class="text-success fw-bold">$${totalPaid.toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h5 class="mb-3">Payment Details</h5>
+            ${tableHTML}
+
+            <div class="text-center mt-4 d-print-none">
+                <button type="button" class="btn btn-primary" onclick="window.print()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-printer me-2" viewBox="0 0 16 16">
+                      <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+                      <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
+                    </svg>
+                    Print Receipt
+                </button>
             </div>
-        </div>
-
-        <p class="mb-2"><strong>Service Period:</strong> ${formatDisplayDate(startDate)} to ${formatDisplayDate(endDate)}</p>
-
-        ${tableHTML}
-
-        <div class="text-center mt-4 d-print-none">
-            <button type="button" class="btn btn-outline-primary" onclick="window.print()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-printer me-2" viewBox="0 0 16 16">
-                  <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
-                  <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
-                </svg>
-                Print Receipt
-            </button>
-        </div>
+        </body>
+        </html>
     `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
 }
 
 // --- PIN Authentication ---
